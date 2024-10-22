@@ -1,0 +1,138 @@
+<script lang="ts">import { createEventDispatcher } from "svelte";
+import { tweened } from "svelte/motion";
+import { defaults, marqueeckSlide, optionsMerger } from "./marqueeck";
+import "./marqueeck.css";
+export let options = defaults;
+export let isMouseHovering = false;
+export let still = false;
+export let extend = true;
+export let onClick = void 0;
+export let ribbonClasses = "", childClasses = "", stickyClasses = "", separatorClasses = "", hoverClasses = "";
+let renderElaimant = true;
+let wrapperWidth;
+let childWidth;
+let initialPos;
+let role = "marquee";
+let tabindex = -1;
+let opt = optionsMerger(options, [{ still }]);
+const { childTransition, childStagger, childStaggerDuration } = opt;
+const { separator, stickyStart, stickyEnd } = $$slots;
+const tweenedSpeed = tweened(opt.speed * opt.speedFactor(), {
+  duration: opt.brakeDuration,
+  easing: opt.easing
+});
+if (!$$slots.default) {
+  console.error("\u{1F4E6} Wrap something inside the Marqueeck component.");
+  renderElaimant = false;
+}
+$: wrapperInnerWidth = wrapperWidth - 2 * opt.paddingX;
+$: neededChildren = Math.round(wrapperInnerWidth / (childWidth + opt.gap)) + 2;
+$: initialPos = -(childWidth + opt.gap);
+$: reactiveHoverClasses = isMouseHovering ? hoverClasses : "";
+$: role = onClick ? "button" : "marquee";
+$: tabindex = onClick ? 0 : -1;
+$: opt = optionsMerger(options, [{ still }, { currentSpeed: () => $tweenedSpeed }]);
+const handleClick = (event) => {
+  if (!onClick) return;
+  if (event.type === "click") {
+    event.preventDefault();
+    onClick(event);
+  }
+  if (event.type === "keydown") {
+    const { code } = event;
+    if (code === "Space" || code === "Enter") {
+      event.preventDefault();
+      onClick(event);
+    }
+  }
+};
+const dispatch = createEventDispatcher();
+const handleHover = async (event) => {
+  isMouseHovering = event.detail;
+  if (opt.onHover === "none") return;
+  $tweenedSpeed = isMouseHovering ? opt.hoverSpeed * opt.speedFactor() : opt.speed * opt.speedFactor();
+  dispatch("hover", event.detail);
+};
+</script>
+
+<!-- svelte-ignore a11y-no-noninteractive-tabindex -->
+{#if renderElaimant}
+	<div
+		data-marqueeck-wrapper
+		class="{$$props.class ?? ''} {extend ? 'extend' : ''} {reactiveHoverClasses} "
+		style:--marqueeck-x-pad="{opt.paddingX}px"
+		style:--ribbonXpos="{initialPos}px"
+		{role}
+		{tabindex}
+		aria-live="polite"
+		bind:offsetWidth={wrapperWidth}
+		on:click={handleClick}
+		on:keydown={handleClick}
+		on:marqueeckHover={handleHover}
+		use:marqueeckSlide={opt}
+	>
+		<!-- * Children -->
+		<div data-marqueeck-ribbon class={ribbonClasses} style:gap="{opt.gap}px" aria-live="polite">
+			<span
+				data-marqueeck-child
+				class={childClasses}
+				style:opacity="0"
+				aria-live="polite"
+				aria-atomic="true"
+				bind:offsetWidth={childWidth}
+				transition:childTransition
+			>
+				<slot hovered={isMouseHovering} />
+				{#if separator}
+					<div data-marqueeck-separator class={separatorClasses}>
+						<slot name="separator" />
+					</div>
+				{/if}
+			</span>
+
+			{#each { length: neededChildren } as _, i}
+				<span
+					data-marqueeck-child
+					class={childClasses}
+					aria-live="polite"
+					aria-atomic="true"
+					aria-hidden="true"
+					transition:childTransition={{
+						delay: childStagger ? childStaggerDuration * i : 0
+					}}
+				>
+					<slot hovered={isMouseHovering} />
+					{#if separator}
+						<span data-marqueeck-separator class={separatorClasses}>
+							<slot name="separator" />
+						</span>
+					{/if}
+				</span>
+			{/each}
+		</div>
+
+		<!-- * Stickies -->
+		{#if stickyStart}
+			<div
+				data-marqueeck-sticky
+				class="start {stickyClasses}"
+				style:top={0}
+				style:bottom={0}
+				style:left={0}
+			>
+				<slot name="stickyStart" />
+			</div>
+		{/if}
+		{#if stickyEnd}
+			<div
+				data-marqueeck-sticky
+				class="end {stickyClasses}"
+				style:top={0}
+				style:bottom={0}
+				style:right={0}
+			>
+				<slot name="stickyEnd" />
+			</div>
+		{/if}
+	</div>
+{/if}

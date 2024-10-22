@@ -1,0 +1,15 @@
+<script lang="ts">import { Tabs as TabsPrimitive } from "bits-ui";
+import { cn } from "../../../logic/utils";
+let className = void 0;
+export { className as class };
+</script>
+
+<TabsPrimitive.List
+	class={cn(
+		'inline-flex h-10 items-center rounded-md bg-muted p-1 text-muted-foreground overflow-x-auto justify-start',
+		className
+	)}
+	{...$$restProps}
+>
+	<slot />
+</TabsPrimitive.List>
